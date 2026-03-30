@@ -35,3 +35,14 @@ A professional, Google Docs-inspired text editor designed specifically for the K
 
 ## Credits
 Developed as part of the **Kikuyu Autocomplete Project**, focusing on sub-10ms latency and high accuracy linguistic modeling.
+
+## License
+
+This project is open-sourced under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. 
+
+### What this means:
+- **You are free** to use, study, modify, and distribute this software.
+- **You must** completely open-source any modifications you make if you host this software as a public service or distribute it in any way.
+- **You cannot** securely rename, rebrand, or modify this software for proprietary commercial gain without open-sourcing your exact modified codebase for anyone to use freely. 
+
+See the [LICENSE](LICENSE) file for the full legal text.
