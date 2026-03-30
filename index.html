@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ki">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kikuyu Docs | Smart Autocomplete Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Toolbar Section -->
+        <div class="toolbar-wrapper">
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <select id="header-select" class="toolbar-select">
+                        <option value="p">Normal Text</option>
+                        <option value="h1">Heading 1</option>
+                        <option value="h2">Heading 2</option>
+                        <option value="h3">Heading 3</option>
+                    </select>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                    <button id="bold-btn" class="toolbar-btn" title="Bold (Ctrl+B)"><b>B</b></button>
+                    <button id="italic-btn" class="toolbar-btn" title="Italic (Ctrl+I)"><i>I</i></button>
+                    <button id="underline-btn" class="toolbar-btn" title="Underline (Ctrl+U)"><u>U</u></button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                    <input type="color" id="color-picker" class="toolbar-color" value="#000000" title="Text Color">
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group actions">
+                    <button id="save-btn" class="primary-btn">Save to File</button>
+                    <button id="clear-btn" class="text-btn">Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Area -->
+        <div class="document-container">
+            <div class="paper-wrapper">
+                <div id="editor" contenteditable="true" spellcheck="false" class="paper">
+                    <h1>Mũratatara wa Gĩkũyũ</h1>
+                    <p>Andĩka magano maku haha...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Suggestion Box -->
+        <div id="suggestions" class="suggestions-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
