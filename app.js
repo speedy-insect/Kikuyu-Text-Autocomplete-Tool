@@ -107,6 +107,24 @@ pageContainer.addEventListener('input', (e) => {
     if (!editor) return;
     lastActiveEditor = editor;
 
+    // Auto-capitalize specific letters typed at the start of a sentence
+    if (e.inputType === 'insertText' && e.data && e.data.length === 1 && /[a-z]/.test(e.data)) {
+        const textBeforeAll = getTextBeforeCursor();
+        const textBefore = textBeforeAll.slice(0, -1).trim();
+        if (textBefore.length === 0 || /[.!?]/.test(textBefore.slice(-1))) {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset > 0) {
+                    // Temporarily select the lowercase letter and overwrite it
+                    range.setStart(range.startContainer, range.startOffset - 1);
+                    document.execCommand('insertText', false, e.data.toUpperCase());
+                    return; // Stop here; the uppercase letter triggers the next events
+                }
+            }
+        }
+    }
+
     // A4 Pagination Engine
     checkPagination(editor);
 
@@ -154,8 +172,10 @@ function checkPagination(page) {
         if (!nextPage || !nextPage.classList.contains('a4-page')) {
             nextPage = document.createElement('div');
             nextPage.className = 'a4-page';
-            nextPage.contentEditable = true;
-            nextPage.spellcheck = false;
+            nextPage.setAttribute('contenteditable', 'true');
+            nextPage.setAttribute('spellcheck', 'false');
+            nextPage.setAttribute('data-gramm', 'false');
+            nextPage.setAttribute('data-gramm_editor', 'false');
             page.parentNode.insertBefore(nextPage, page.nextSibling);
         }
         
@@ -250,18 +270,33 @@ pageContainer.addEventListener('keydown', (e) => {
     }
 });
 
-function isSentenceStart() {
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return false;
-    
+function getTextBeforeCursor() {
     const editor = getEditor();
-    if (!editor) return false;
-
-    const textSoFar = editor.innerText.substring(0, editor.innerText.length - lastQuery.length).trim();
-    if (textSoFar.length === 0) return true;
+    if (!editor) return "";
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return "";
     
-    const lastChar = textSoFar[textSoFar.length - 1];
-    return /[.!?]/.test(lastChar);
+    const range = selection.getRangeAt(0);
+    // Ensure the cursor is inside the currently active editor
+    if (!editor.contains(range.startContainer)) return "";
+
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editor);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    return preCaretRange.toString();
+}
+
+function isSentenceStart(queryLength = 0) {
+    let textBefore = getTextBeforeCursor();
+    // Exclude the current word if we're evaluating autocomplete
+    if (textBefore.length >= queryLength) {
+        textBefore = textBefore.substring(0, textBefore.length - queryLength).trim();
+    }
+    
+    if (textBefore.length === 0) return true;
+    
+    // Check if the character right before the word is sentence-terminating
+    return /[.!?]/.test(textBefore.slice(-1));
 }
 
 async function fetchSuggestions(query) {
@@ -295,7 +330,7 @@ function displaySuggestions(suggestions, type) {
         return;
     }
 
-    const capitalize = isSentenceStart();
+    const capitalize = isSentenceStart(lastQuery.length);
     const processedSuggestions = suggestions.map(s => 
         capitalize ? s.charAt(0).toUpperCase() + s.slice(1) : s
     );
