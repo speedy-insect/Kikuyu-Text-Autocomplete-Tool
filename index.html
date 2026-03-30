@@ -34,6 +34,7 @@
                 </div>
                 <div class="toolbar-divider"></div>
                 <div class="toolbar-group actions">
+                    <button id="theme-btn" class="toolbar-btn" title="Toggle Dark Mode">🌓</button>
                     <button id="save-btn" class="primary-btn">Save to File</button>
                     <button id="clear-btn" class="text-btn">Clear</button>
                 </div>
@@ -41,17 +42,25 @@
         </div>
 
         <!-- Document Area -->
-        <div class="document-container">
-            <div class="paper-wrapper">
-                <div id="editor" contenteditable="true" spellcheck="false" class="paper">
-                    <h1>Mũratatara wa Gĩkũyũ</h1>
-                    <p>Andĩka magano maku haha...</p>
-                </div>
+        <div id="page-container" class="document-container">
+            <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
+                 role="textbox" aria-multiline="true" aria-autocomplete="list" aria-haspopup="listbox" title="Kikuyu Text Editor"
+                 data-gramm="false" data-gramm_editor="false" autocorrect="off" autocapitalize="off" autocomplete="off">
+                <h1>Mũratatara wa Gĩkũyũ</h1>
+                <p>Andĩka magano maku haha...</p>
             </div>
         </div>
 
+        <!-- Status Bar -->
+        <div id="status-bar" class="status-bar">
+            <div id="word-count">0 words</div>
+            <div id="char-count">0 characters</div>
+            <div id="page-count"></div> <!-- Optional now -->
+            <div class="status-label">Kikuyu Docs v2.0</div>
+        </div>
+
         <!-- Floating Suggestion Box -->
-        <div id="suggestions" class="suggestions-container"></div>
+        <div id="suggestions" class="suggestions-container" role="listbox" aria-label="Suggestions"></div>
     </div>
 
     <script src="app.js"></script>

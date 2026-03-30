@@ -84,8 +84,15 @@ def suggest():
 @app.route('/predict', methods=['GET'])
 def predict():
     prev_word = request.args.get('prev', '').lower()
+    # First try literal match
     if prev_word in bigrams:
         return jsonify(bigrams[prev_word])
+    
+    # Try normalized match if the above failed
+    norm_prev = normalize_kikuyu(prev_word)
+    if norm_prev in bigrams:
+        return jsonify(bigrams[norm_prev])
+        
     return jsonify([])
 
 @app.route('/')
