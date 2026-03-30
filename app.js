@@ -71,18 +71,33 @@ document.getElementById('clear-btn').onclick = () => {
     }
 };
 
-document.getElementById('save-btn').onclick = () => {
+document.getElementById('save-word-btn').onclick = () => {
     let fullContent = "";
-    document.querySelectorAll('.a4-page').forEach(page => {
+    document.querySelectorAll('.a4-page').forEach((page, index) => {
         fullContent += page.innerHTML;
+        if (index < document.querySelectorAll('.a4-page').length - 1) {
+            fullContent += "<br style='page-break-after: always; clear: both;' />";
+        }
     });
-    const blob = new Blob([`<html><body style="font-family: sans-serif; padding: 40px; max-width: 800px; margin: auto;">${fullContent}</body></html>`], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Kikuyu_Document.html';
-    a.click();
-    URL.revokeObjectURL(url);
+    
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>Kikuyu Document</title></head>
+    <body style="font-family: sans-serif; padding: 40px; max-width: 800px; margin: auto;">`;
+    const footer = "</body></html>";
+    const sourceHTML = header + fullContent + footer;
+    
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const fileDownload = document.createElement("a");
+    document.body.appendChild(fileDownload);
+    fileDownload.href = source;
+    fileDownload.download = 'Kikuyu_Document.doc';
+    fileDownload.click();
+    document.body.removeChild(fileDownload);
+};
+
+document.getElementById('save-pdf-btn').onclick = () => {
+    // Rely on @media print CSS to generate a perfect PDF layout
+    window.print();
 };
 
 // --- Autocomplete & Pagination Logic ---

@@ -97,6 +97,12 @@ body {
     background: rgba(60,64,67,0.1);
 }
 
+.export-btn {
+    width: auto;
+    padding: 0 12px;
+    font-weight: 500;
+}
+
 /* --- THE CANVAS SYSTEM --- */
 .document-container {
     flex: 1;
@@ -205,11 +211,21 @@ body {
 }
 
 @media print {
+    @page { size: A4; margin: 0; }
+    body, html, .app-container { height: auto !important; background: white !important; }
     .toolbar-wrapper, .status-bar, .suggestions-container { display: none !important; }
-    .document-container { padding: 0 !important; }
-    .paper-wrapper { 
+    .document-container { 
+        padding: 0 !important; 
+        gap: 0 !important; 
+        background: none !important; 
+        overflow: visible !important; 
+    }
+    .a4-page { 
         box-shadow: none !important; 
         background: none !important;
-        width: 100% !important;
+        border: none !important;
+        margin: 0 !important;
+        page-break-after: always;
+        overflow: visible !important;
     }
 }
