@@ -10,6 +10,11 @@ A professional, Google Docs-inspired text editor designed specifically for the K
 - **Standalone Portability**: Includes optimized `msgpack` models (3.5MB total) and its own backend server.
 - **Save to File**: Download your formatted work as an HTML document.
 
+
+<img width="1913" height="961" alt="image" src="https://github.com/user-attachments/assets/b7d0f58d-1920-465c-9d79-edcf1a768ea6" />
+
+
+
 ##  Setup & Running
 
 1. **Install Dependencies**:
