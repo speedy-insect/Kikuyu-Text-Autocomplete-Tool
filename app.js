@@ -61,7 +61,8 @@ document.getElementById('clear-btn').onclick = () => {
     if (confirm('Clear entire document?')) {
         pageContainer.innerHTML = `
             <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
-                 role="textbox" aria-multiline="true" title="Kikuyu Text Editor">
+                 role="textbox" aria-multiline="true" title="Kikuyu Text Editor"
+                 data-gramm="false" data-gramm_editor="false" data-ms-editor="false" translate="no" autocorrect="off" autocapitalize="off" autocomplete="off">
                 <h1>Mũratatara wa Gĩkũyũ</h1>
                 <p><br></p>
             </div>`;
@@ -162,7 +163,7 @@ pageContainer.addEventListener('input', (e) => {
 
     debounceTimer = setTimeout(() => {
         fetchSuggestions(currentWord);
-    }, 50);
+    }, 150);
 });
 
 // A4 Pagination Enforcement
@@ -176,6 +177,11 @@ function checkPagination(page) {
             nextPage.setAttribute('spellcheck', 'false');
             nextPage.setAttribute('data-gramm', 'false');
             nextPage.setAttribute('data-gramm_editor', 'false');
+            nextPage.setAttribute('data-ms-editor', 'false');
+            nextPage.setAttribute('translate', 'no');
+            nextPage.setAttribute('autocorrect', 'off');
+            nextPage.setAttribute('autocapitalize', 'off');
+            nextPage.setAttribute('autocomplete', 'off');
             page.parentNode.insertBefore(nextPage, page.nextSibling);
         }
         

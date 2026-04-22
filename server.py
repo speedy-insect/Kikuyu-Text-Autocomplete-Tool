@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import msgpack
 import os
 import sys
+from functools import lru_cache
 
 # Ensure UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -46,6 +47,7 @@ class KikuyuTrie:
         trie.root = TrieNode.from_dict(data)
         return trie
 
+    @lru_cache(maxsize=2048)
     def search(self, prefix, top_n=5):
         norm_prefix = normalize_kikuyu(prefix)
         node = self.root
@@ -81,19 +83,19 @@ def suggest():
     if not query: return jsonify([])
     return jsonify(trie.search(query, top_n=5))
 
+@lru_cache(maxsize=2048)
+def get_cached_prediction(prev_word):
+    if prev_word in bigrams:
+        return bigrams[prev_word]
+    norm_prev = normalize_kikuyu(prev_word)
+    if norm_prev in bigrams:
+        return bigrams[norm_prev]
+    return []
+
 @app.route('/predict', methods=['GET'])
 def predict():
     prev_word = request.args.get('prev', '').lower()
-    # First try literal match
-    if prev_word in bigrams:
-        return jsonify(bigrams[prev_word])
-    
-    # Try normalized match if the above failed
-    norm_prev = normalize_kikuyu(prev_word)
-    if norm_prev in bigrams:
-        return jsonify(bigrams[norm_prev])
-        
-    return jsonify([])
+    return jsonify(get_cached_prediction(prev_word))
 
 @app.route('/')
 def index():
