@@ -13,7 +13,7 @@ if sys.stdout.encoding != 'utf-8':
         import codecs
         sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__, static_folder='frontend')
 
 def normalize_kikuyu(text):
     if not isinstance(text, str): return ""
@@ -65,6 +65,18 @@ class KikuyuTrie:
             if char not in node.children: return False
             node = node.children[char]
         return len(node.actual_words) > 0
+
+    def autocorrect(self, word):
+        norm_word = normalize_kikuyu(word)
+        node = self.root
+        for char in norm_word:
+            if char not in node.children: return None
+            node = node.children[char]
+        if not node.actual_words: return None
+        if word in node.actual_words: return None
+        best_word = max(node.actual_words.items(), key=lambda x: x[1])[0]
+        if best_word == word: return None
+        return best_word
 
     @lru_cache(maxsize=2048)
     def search(self, prefix, top_n=5):
@@ -147,13 +159,49 @@ def predict():
     prev_word = request.args.get('prev', '').lower()
     return jsonify(get_cached_prediction(prev_word))
 
+@app.route('/autocorrect', methods=['GET'])
+def autocorrect_endpoint():
+    word = request.args.get('w', '').strip()
+    if not word: return jsonify({"correction": None})
+    if re.match(r'^[\d\W_]+$', word): return jsonify({"correction": None})
+    correction = trie.autocorrect(word)
+    return jsonify({"correction": correction})
+
+# --- Document Management API ---
+DOCS_DIR = os.path.join(BASE_DIR, 'documents')
+os.makedirs(DOCS_DIR, exist_ok=True)
+
+@app.route('/api/documents', methods=['GET'])
+def list_documents():
+    files = [f for f in os.listdir(DOCS_DIR) if f.endswith('.html')]
+    return jsonify(files)
+
+@app.route('/api/documents/<filename>', methods=['GET'])
+def get_document(filename):
+    if not filename.endswith('.html'): return jsonify({"error": "Invalid file"}), 400
+    try:
+        with open(os.path.join(DOCS_DIR, filename), 'r', encoding='utf-8') as f:
+            return jsonify({"content": f.read()})
+    except FileNotFoundError:
+        return jsonify({"error": "Not found"}), 404
+
+@app.route('/api/documents/<filename>', methods=['POST'])
+def save_document(filename):
+    if not filename.endswith('.html'): return jsonify({"error": "Invalid file"}), 400
+    data = request.get_json()
+    if not data or 'content' not in data:
+        return jsonify({"error": "No content"}), 400
+    with open(os.path.join(DOCS_DIR, filename), 'w', encoding='utf-8') as f:
+        f.write(data['content'])
+    return jsonify({"success": True})
+
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('frontend', 'index.html')
 
 @app.route('/<path:path>')
 def static_proxy(path):
-    return send_from_directory('.', path)
+    return send_from_directory('frontend', path)
 
 if __name__ == '__main__':
     # Defaulting to 5001 to avoid collision with the main script if both are open

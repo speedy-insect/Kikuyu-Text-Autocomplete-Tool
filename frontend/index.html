@@ -10,10 +10,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body class="light-mode" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-ms-editor="false" translate="no" autocorrect="off" autocapitalize="off" autocomplete="off">
-    <div class="app-container" spellcheck="false">
-        <!-- Toolbar Section -->
+    <div class="layout-wrapper">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Documents</h2>
+                <button id="new-doc-btn" class="toolbar-btn" title="New Document">➕</button>
+            </div>
+            <div class="doc-list" id="doc-list">
+                <!-- Document items will be loaded here -->
+            </div>
+        </div>
+
+        <div class="app-container" id="main-container" spellcheck="false">
+            <!-- Toolbar Section -->
         <div class="toolbar-wrapper">
             <div class="toolbar">
+                <div class="toolbar-group">
+                    <button id="menu-btn" class="toolbar-btn" title="Toggle Sidebar">☰</button>
+                </div>
+                <div class="toolbar-divider"></div>
                 <div class="toolbar-group">
                     <select id="header-select" class="toolbar-select" aria-label="Text formatting" title="Text formatting">
                         <option value="p">Normal Text</option>
@@ -62,6 +78,7 @@
 
         <!-- Floating Suggestion Box -->
         <div id="suggestions" class="suggestions-container" role="listbox" aria-label="Suggestions"></div>
+    </div>
     </div>
 
     <script src="app.js"></script>

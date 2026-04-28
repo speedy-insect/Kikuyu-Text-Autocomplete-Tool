@@ -1,0 +1,377 @@
+:root {
+    --primary-color: #4f46e5;
+    --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --bg-light: #f4f5f7;
+    --paper-white: #ffffff;
+    --text-main: #1a1b20;
+    --toolbar-border: rgba(0, 0, 0, 0.08);
+    --toolbar-bg: rgba(255, 255, 255, 0.7);
+    --accent-color: #f59e0b;
+    --status-bg: rgba(255, 255, 255, 0.8);
+    --status-text: #64748b;
+    --sheet-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+}
+
+body.dark-mode {
+    --primary-color: #6366f1;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --bg-light: #0b0c10;
+    --paper-white: #16181d;
+    --text-main: #e2e8f0;
+    --toolbar-border: rgba(255, 255, 255, 0.05);
+    --toolbar-bg: rgba(22, 24, 29, 0.75);
+    --status-bg: rgba(22, 24, 29, 0.85);
+    --status-text: #81818a;
+    --sheet-shadow: 0 16px 40px -5px rgba(0, 0, 0, 0.8), 0 8px 16px -4px rgba(0, 0, 0, 0.6);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-light);
+    color: var(--text-main);
+    overflow: hidden;
+    transition: background 0.4s ease, color 0.4s ease;
+}
+
+body:not(.dark-mode) {
+    background: radial-gradient(circle at 50% 0%, #fdfbfb 0%, #ebedee 100%);
+}
+
+body.dark-mode {
+    background: radial-gradient(circle at 50% 0%, #1e1e24 0%, #0b0c10 100%);
+}
+
+.layout-wrapper {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    width: 280px;
+    background: var(--status-bg);
+    border-right: 1px solid var(--toolbar-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-100%);
+    position: absolute;
+    height: 100vh;
+    z-index: 2000;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+}
+
+.sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--toolbar-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.doc-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.95rem;
+}
+
+.doc-item:hover {
+    background: rgba(120, 120, 120, 0.1);
+}
+
+.doc-item.active {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+/* Toolbar Styling */
+.toolbar-wrapper {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--toolbar-bg);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 16px;
+    padding: 8px 16px;
+    z-index: 1000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: all 0.3s ease;
+}
+
+.toolbar-wrapper:hover {
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    max-width: 1600px;
+    margin: 0 auto;
+    gap: 16px;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--toolbar-border);
+}
+
+.toolbar-select {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-main);
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+}
+
+.toolbar-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toolbar-btn:hover {
+    background: rgba(120, 120, 120, 0.15);
+    transform: scale(1.05);
+}
+
+.toolbar-btn:active {
+    transform: scale(0.95);
+}
+
+.export-btn {
+    width: auto;
+    padding: 0 12px;
+    font-weight: 500;
+}
+
+/* --- THE CANVAS SYSTEM --- */
+.document-container {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 120px 16px 60px 16px; /* Space for top floating toolbar and bottom overscroll */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px; /* Space between pages */
+    scroll-behavior: smooth;
+}
+
+.a4-page {
+    width: 816px; /* Exactly A4 */
+    min-height: 1056px; /* Exactly A4 */
+    max-height: 1056px; /* Restrict writing outside */
+    background: var(--paper-white);
+    box-shadow: var(--sheet-shadow);
+    padding: 96px; /* 1 inch margins */
+    box-sizing: border-box;
+    border: 1px solid var(--toolbar-border);
+    border-radius: 8px; /* Slight modern rounding */
+    outline: none;
+    overflow: hidden; /* Stop text spilling down, JS handles new page */
+    cursor: text;
+    transition: background 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: var(--text-main);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-variant-numeric: tabular-nums;
+}
+
+.a4-page h1 { 
+    font-size: 2.2rem; 
+    margin-bottom: 24px; 
+    font-family: 'Outfit', sans-serif; 
+    font-weight: 600; 
+    letter-spacing: -0.02em; 
+}
+.a4-page h2 { 
+    font-size: 1.6rem; 
+    margin-top: 40px; 
+    margin-bottom: 16px; 
+    font-family: 'Outfit', sans-serif; 
+    font-weight: 600; 
+}
+.a4-page p { 
+    margin-bottom: 24px; 
+}
+
+/* Status Bar */
+.status-bar {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--status-bg);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 24px;
+    padding: 10px 24px;
+    display: flex;
+    gap: 24px;
+    font-size: 0.85rem;
+    color: var(--status-text);
+    z-index: 1000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.status-label {
+    display: none; /* Hide label in pill mode to save space */
+}
+
+/* Floating Suggestion Box */
+.suggestions-container {
+    position: absolute;
+    background: var(--status-bg);
+    border-radius: 12px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+    display: none;
+    z-index: 2000;
+    min-width: 250px;
+    max-height: 350px;
+    overflow: hidden;
+    border: 1px solid var(--toolbar-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    font-family: 'Outfit', sans-serif;
+    animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.suggestion-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    color: var(--text-main);
+    display: flex;
+    justify-content: space-between;
+    transition: background 0.2s;
+}
+
+.suggestion-item.selected, .suggestion-item:hover {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+/* Spellchecker Styles */
+.spell-error {
+    text-decoration: underline wavy red;
+    text-decoration-skip-ink: none;
+    cursor: pointer;
+}
+
+/* Custom Context Menu */
+.custom-context-menu {
+    position: absolute;
+    background: var(--status-bg);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border: 1px solid var(--toolbar-border);
+    padding: 6px 0;
+    min-width: 180px;
+    z-index: 3000;
+    display: none;
+    font-size: 0.95rem;
+    font-family: 'Outfit', sans-serif;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-main);
+}
+
+.context-menu-item:hover {
+    background: var(--bg-gray);
+}
+
+@media print {
+    @page { size: A4; margin: 0; }
+    body, html, .app-container { height: auto !important; background: white !important; }
+    .toolbar-wrapper, .status-bar, .suggestions-container { display: none !important; }
+    .document-container { 
+        padding: 0 !important; 
+        gap: 0 !important; 
+        background: none !important; 
+        overflow: visible !important; 
+    }
+    .a4-page { 
+        box-shadow: none !important; 
+        background: none !important;
+        border: none !important;
+        margin: 0 !important;
+        page-break-after: always;
+        overflow: visible !important;
+    }
+}

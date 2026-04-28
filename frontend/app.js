@@ -22,10 +22,75 @@ function getEditor() {
     return lastActiveEditor || document.querySelector('.a4-page');
 }
 
+let currentFilename = 'untitled.html';
+const sidebar = document.getElementById('sidebar');
+const docList = document.getElementById('doc-list');
+
+document.getElementById('menu-btn').onclick = () => {
+    sidebar.classList.toggle('open');
+};
+
+document.getElementById('new-doc-btn').onclick = () => {
+    const name = prompt("Enter document name:");
+    if (name) {
+        currentFilename = name.endsWith('.html') ? name : name + '.html';
+        pageContainer.innerHTML = `
+            <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
+                 role="textbox" aria-multiline="true" title="Kikuyu Text Editor"
+                 data-gramm="false" data-gramm_editor="false" data-ms-editor="false" translate="no" autocorrect="off" autocapitalize="off" autocomplete="off">
+                <h1>Mũratatara wa Gĩkũyũ</h1>
+                <p><br></p>
+            </div>`;
+        lastActiveEditor = document.getElementById('page-1');
+        saveContent();
+        loadDocuments();
+    }
+};
+
+function loadDocuments() {
+    fetch('/api/documents')
+        .then(res => res.json())
+        .then(files => {
+            docList.innerHTML = '';
+            files.forEach(file => {
+                const div = document.createElement('div');
+                div.className = `doc-item ${file === currentFilename ? 'active' : ''}`;
+                div.textContent = file;
+                div.onclick = () => openDocument(file);
+                docList.appendChild(div);
+            });
+        });
+}
+
+function openDocument(filename) {
+    fetch(`/api/documents/${filename}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.content) {
+                currentFilename = filename;
+                pageContainer.innerHTML = data.content;
+                lastActiveEditor = document.getElementById('page-1');
+                updateStats();
+                loadDocuments();
+            }
+        });
+}
+
 // --- Initialization ---
 window.onload = () => {
-    loadSavedContent();
-    updateStats();
+    loadDocuments();
+    fetch(`/api/documents/${currentFilename}`)
+        .then(res => {
+            if(res.ok) {
+                res.json().then(data => {
+                    if(data.content) {
+                        pageContainer.innerHTML = data.content;
+                        lastActiveEditor = document.getElementById('page-1');
+                        updateStats();
+                    }
+                });
+            }
+        });
     
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.body.classList.add('dark-mode');
@@ -150,7 +215,7 @@ pageContainer.addEventListener('input', (e) => {
         const lastWord = words[words.length - 1];
         if (lastWord) {
             fetchPredictions(lastWord);
-            checkSpelling(lastWord, container, offset - 1);
+            checkAutocorrectAndSpell(lastWord, container, offset - 1);
         }
         else hideSuggestions();
         return;
@@ -446,30 +511,12 @@ function updateStats() {
 }
 
 function saveContent() {
-    let content = "";
-    document.querySelectorAll('.a4-page').forEach(page => {
-        content += page.innerHTML + "<!-- PAGE_BREAK -->";
+    const content = pageContainer.innerHTML;
+    fetch(`/api/documents/${currentFilename}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
     });
-    localStorage.setItem('kikuyu_docs_content', content);
-}
-
-function loadSavedContent() {
-    const saved = localStorage.getItem('kikuyu_docs_content');
-    if (saved) {
-        const parts = saved.split("<!-- PAGE_BREAK -->").filter(p => p.trim() !== "");
-        if (parts.length > 0) {
-           pageContainer.innerHTML = '';
-           parts.forEach((p, idx) => {
-               const div = document.createElement('div');
-               div.id = `page-${idx+1}`;
-               div.className = 'a4-page';
-               div.contentEditable = true;
-               div.innerHTML = p;
-               pageContainer.appendChild(div);
-           });
-           lastActiveEditor = document.getElementById('page-1');
-        }
-    }
 }
 
 document.addEventListener('mousedown', (e) => {
@@ -521,22 +568,46 @@ function restoreCaretPosition(context, caretOffset) {
     selection.addRange(range);
 }
 
-function checkSpelling(word, textNode, endOffset) {
+function checkAutocorrectAndSpell(word, textNode, endOffset) {
     if (textNode.nodeType !== Node.TEXT_NODE) return;
     const cleanWord = word.replace(/[^a-zA-ZĩũĨŨ\']/g, '');
     if (cleanWord.length < 2) return;
 
+    fetch(`/autocorrect?w=${encodeURIComponent(cleanWord)}`)
+        .then(res => res.json())
+        .then(data => {
+            const exactStart = textNode.textContent.lastIndexOf(cleanWord, endOffset);
+            if (exactStart === -1) return;
+            const editor = getEditor();
+
+            if (data.correction) {
+                const savedCaret = saveCaretPosition(editor);
+                const range = document.createRange();
+                range.setStart(textNode, exactStart);
+                range.setEnd(textNode, exactStart + cleanWord.length);
+                range.deleteContents();
+                
+                let replacement = data.correction;
+                if (cleanWord.charAt(0) === cleanWord.charAt(0).toUpperCase()) {
+                    replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
+                }
+                
+                const newText = document.createTextNode(replacement);
+                range.insertNode(newText);
+                
+                restoreCaretPosition(editor, savedCaret + (replacement.length - cleanWord.length));
+            } else {
+                checkSpelling(cleanWord, textNode, exactStart, editor);
+            }
+        }).catch(err => console.error("Autocorrect error", err));
+}
+
+function checkSpelling(cleanWord, textNode, exactStart, editor) {
     fetch(`/check_word?w=${encodeURIComponent(cleanWord)}`)
         .then(res => res.json())
         .then(data => {
             if (!data.valid) {
-                // Find exactly where the word is in the substring ending at endOffset
-                const exactStart = textNode.textContent.lastIndexOf(cleanWord, endOffset);
-                if (exactStart === -1) return;
-                
-                const editor = getEditor();
                 const savedCaret = saveCaretPosition(editor);
-                
                 const range = document.createRange();
                 range.setStart(textNode, exactStart);
                 range.setEnd(textNode, exactStart + cleanWord.length);
