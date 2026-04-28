@@ -5,6 +5,7 @@ import sys
 from functools import lru_cache
 import re
 from io import BytesIO
+from werkzeug.utils import secure_filename
 
 try:
     from docx import Document
@@ -208,8 +209,16 @@ def save_document(filename):
 def delete_document(filename):
     if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
         return jsonify({"error": "Invalid file"}), 400
-    
-    file_path = os.path.join(DOCS_DIR, filename)
+
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({"error": "Invalid file"}), 400
+
+    base_dir = os.path.abspath(DOCS_DIR)
+    file_path = os.path.abspath(os.path.join(base_dir, safe_name))
+    if os.path.commonpath([base_dir, file_path]) != base_dir:
+        return jsonify({"error": "Invalid file path"}), 400
+
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
