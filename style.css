@@ -210,6 +210,37 @@ body {
     color: white;
 }
 
+/* Spellchecker Styles */
+.spell-error {
+    text-decoration: underline wavy red;
+    text-decoration-skip-ink: none;
+    cursor: pointer;
+}
+
+/* Custom Context Menu */
+.custom-context-menu {
+    position: absolute;
+    background: var(--paper-white);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid var(--toolbar-border);
+    padding: 4px 0;
+    min-width: 150px;
+    z-index: 3000;
+    display: none;
+    font-size: 0.95rem;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-main);
+}
+
+.context-menu-item:hover {
+    background: var(--bg-gray);
+}
+
 @media print {
     @page { size: A4; margin: 0; }
     body, html, .app-container { height: auto !important; background: white !important; }

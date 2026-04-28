@@ -7,3 +7,4 @@ venv/
 ENV/
 .DS_Store
 *.log
+user_dictionary.txt

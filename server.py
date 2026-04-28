@@ -3,6 +3,7 @@ import msgpack
 import os
 import sys
 from functools import lru_cache
+import re
 
 # Ensure UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -47,6 +48,24 @@ class KikuyuTrie:
         trie.root = TrieNode.from_dict(data)
         return trie
 
+    def insert(self, word):
+        norm_word = normalize_kikuyu(word)
+        node = self.root
+        for char in norm_word:
+            if char not in node.children:
+                node.children[char] = TrieNode()
+            node = node.children[char]
+        if word not in node.actual_words:
+            node.actual_words[word] = 1
+
+    def contains(self, word):
+        norm_word = normalize_kikuyu(word)
+        node = self.root
+        for char in norm_word:
+            if char not in node.children: return False
+            node = node.children[char]
+        return len(node.actual_words) > 0
+
     @lru_cache(maxsize=2048)
     def search(self, prefix, top_n=5):
         norm_prefix = normalize_kikuyu(prefix)
@@ -70,9 +89,18 @@ class KikuyuTrie:
 BASE_DIR = os.path.dirname(__file__)
 TRIE_PATH = os.path.join(BASE_DIR, 'models', 'kikuyu_trie.msgpack')
 BIGRAM_PATH = os.path.join(BASE_DIR, 'models', 'kikuyu_bigrams.msgpack')
+USER_DICT_PATH = os.path.join(BASE_DIR, 'user_dictionary.txt')
 
 print("Loading Kikuyu Autocomplete Models...")
 trie = KikuyuTrie.load(TRIE_PATH)
+
+if os.path.exists(USER_DICT_PATH):
+    print("Loading user dictionary...")
+    with open(USER_DICT_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            w = line.strip()
+            if w: trie.insert(w)
+
 with open(BIGRAM_PATH, 'rb') as f:
     bigrams = msgpack.unpack(f, raw=False)
 print("Standalone Web Server Ready.")
@@ -82,6 +110,28 @@ def suggest():
     query = request.args.get('q', '').lower()
     if not query: return jsonify([])
     return jsonify(trie.search(query, top_n=5))
+
+@app.route('/check_word', methods=['GET'])
+def check_word():
+    word = request.args.get('w', '').strip()
+    if not word: return jsonify({"valid": True})
+    if re.match(r'^[\d\W_]+$', word):
+        return jsonify({"valid": True})
+    return jsonify({"valid": trie.contains(word)})
+
+@app.route('/learn_word', methods=['POST'])
+def learn_word():
+    data = request.get_json()
+    if not data or 'word' not in data:
+        return jsonify({"success": False}), 400
+    
+    word = data['word'].strip()
+    if word:
+        trie.insert(word)
+        trie.search.cache_clear()
+        with open(USER_DICT_PATH, 'a', encoding='utf-8') as f:
+            f.write(word + '\n')
+    return jsonify({"success": True})
 
 @lru_cache(maxsize=2048)
 def get_cached_prediction(prev_word):

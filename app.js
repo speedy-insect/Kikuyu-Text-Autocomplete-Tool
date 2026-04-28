@@ -145,10 +145,13 @@ pageContainer.addEventListener('input', (e) => {
         textBefore = container.textContent.substring(0, offset);
     }
 
-    if (e.data === " " || textBefore.endsWith(" ")) {
-        const words = textBefore.trim().split(/\s+/);
+    if (e.data === " " || textBefore.match(/[\s.,!?]$/)) {
+        const words = textBefore.trim().split(/[\s.,!?]+/);
         const lastWord = words[words.length - 1];
-        if (lastWord) fetchPredictions(lastWord);
+        if (lastWord) {
+            fetchPredictions(lastWord);
+            checkSpelling(lastWord, container, offset - 1);
+        }
         else hideSuggestions();
         return;
     }
@@ -473,5 +476,126 @@ document.addEventListener('mousedown', (e) => {
     const editor = getEditor();
     if (!suggestionsContainer.contains(e.target) && (!editor || !editor.contains(e.target))) {
         hideSuggestions();
+    }
+});
+
+// --- Spellchecker & Context Menu ---
+
+function saveCaretPosition(context) {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return 0;
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(context);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    return preCaretRange.toString().length;
+}
+
+function restoreCaretPosition(context, caretOffset) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(context, 0);
+    range.collapse(true);
+
+    const nodeStack = [context];
+    let node, foundStart = false, stop = false;
+    let charIndex = 0;
+
+    while (!stop && (node = nodeStack.pop())) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const nextCharIndex = charIndex + node.length;
+            if (!foundStart && caretOffset >= charIndex && caretOffset <= nextCharIndex) {
+                range.setStart(node, caretOffset - charIndex);
+                foundStart = true;
+                stop = true;
+            }
+            charIndex = nextCharIndex;
+        } else {
+            let i = node.childNodes.length;
+            while (i--) {
+                nodeStack.push(node.childNodes[i]);
+            }
+        }
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function checkSpelling(word, textNode, endOffset) {
+    if (textNode.nodeType !== Node.TEXT_NODE) return;
+    const cleanWord = word.replace(/[^a-zA-ZĩũĨŨ\']/g, '');
+    if (cleanWord.length < 2) return;
+
+    fetch(`/check_word?w=${encodeURIComponent(cleanWord)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.valid) {
+                // Find exactly where the word is in the substring ending at endOffset
+                const exactStart = textNode.textContent.lastIndexOf(cleanWord, endOffset);
+                if (exactStart === -1) return;
+                
+                const editor = getEditor();
+                const savedCaret = saveCaretPosition(editor);
+                
+                const range = document.createRange();
+                range.setStart(textNode, exactStart);
+                range.setEnd(textNode, exactStart + cleanWord.length);
+                
+                const span = document.createElement('span');
+                span.className = 'spell-error';
+                span.dataset.word = cleanWord;
+                span.textContent = cleanWord;
+                
+                range.deleteContents();
+                range.insertNode(span);
+                
+                restoreCaretPosition(editor, savedCaret);
+            }
+        }).catch(err => console.error("Spellcheck error", err));
+}
+
+const contextMenu = document.createElement('div');
+contextMenu.className = 'custom-context-menu';
+contextMenu.innerHTML = `<div class="context-menu-item" id="add-to-dict-btn">Add to Dictionary</div>`;
+document.body.appendChild(contextMenu);
+
+let currentSpellNode = null;
+
+document.addEventListener('contextmenu', (e) => {
+    if (e.target && e.target.classList.contains('spell-error')) {
+        e.preventDefault();
+        currentSpellNode = e.target;
+        contextMenu.style.left = `${e.pageX}px`;
+        contextMenu.style.top = `${e.pageY}px`;
+        contextMenu.style.display = 'block';
+    } else {
+        contextMenu.style.display = 'none';
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target)) {
+        contextMenu.style.display = 'none';
+    }
+});
+
+document.getElementById('add-to-dict-btn').addEventListener('click', () => {
+    if (currentSpellNode) {
+        const word = currentSpellNode.dataset.word;
+        fetch('/learn_word', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelectorAll(`.spell-error[data-word="${word}"]`).forEach(span => {
+                    const textNode = document.createTextNode(span.textContent);
+                    span.parentNode.replaceChild(textNode, span);
+                });
+            }
+        });
+        contextMenu.style.display = 'none';
     }
 });
