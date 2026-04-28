@@ -109,10 +109,43 @@ body.dark-mode {
     cursor: pointer;
     transition: background 0.2s;
     font-size: 0.95rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .doc-item:hover {
     background: rgba(120, 120, 120, 0.1);
+}
+
+.doc-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.doc-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--status-text);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.doc-item:hover .doc-delete-btn {
+    opacity: 1;
+}
+
+.doc-delete-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
 }
 
 .doc-item.active {

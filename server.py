@@ -1,9 +1,16 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 import msgpack
 import os
 import sys
 from functools import lru_cache
 import re
+from io import BytesIO
+
+try:
+    from docx import Document
+    from bs4 import BeautifulSoup
+except ImportError:
+    pass
 
 # Ensure UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -173,12 +180,13 @@ os.makedirs(DOCS_DIR, exist_ok=True)
 
 @app.route('/api/documents', methods=['GET'])
 def list_documents():
-    files = [f for f in os.listdir(DOCS_DIR) if f.endswith('.html')]
+    files = [f for f in os.listdir(DOCS_DIR) if f.endswith('.html') or f.endswith('.kikdoc')]
     return jsonify(files)
 
 @app.route('/api/documents/<filename>', methods=['GET'])
 def get_document(filename):
-    if not filename.endswith('.html'): return jsonify({"error": "Invalid file"}), 400
+    if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
+        return jsonify({"error": "Invalid file"}), 400
     try:
         with open(os.path.join(DOCS_DIR, filename), 'r', encoding='utf-8') as f:
             return jsonify({"content": f.read()})
@@ -187,13 +195,76 @@ def get_document(filename):
 
 @app.route('/api/documents/<filename>', methods=['POST'])
 def save_document(filename):
-    if not filename.endswith('.html'): return jsonify({"error": "Invalid file"}), 400
+    if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
+        return jsonify({"error": "Invalid file"}), 400
     data = request.get_json()
     if not data or 'content' not in data:
         return jsonify({"error": "No content"}), 400
     with open(os.path.join(DOCS_DIR, filename), 'w', encoding='utf-8') as f:
         f.write(data['content'])
     return jsonify({"success": True})
+
+@app.route('/api/documents/<filename>', methods=['DELETE'])
+def delete_document(filename):
+    if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
+        return jsonify({"error": "Invalid file"}), 400
+    
+    file_path = os.path.join(DOCS_DIR, filename)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/export/docx', methods=['POST'])
+def export_docx():
+    data = request.get_json()
+    if not data or 'html' not in data:
+        return jsonify({"error": "No HTML content"}), 400
+        
+    try:
+        html_content = data['html']
+        soup = BeautifulSoup(html_content, 'html.parser')
+        doc = Document()
+        
+        # Super basic HTML to docx parser
+        for element in soup.find_all(['h1', 'h2', 'p']):
+            if element.name == 'h1':
+                doc.add_heading(element.get_text(), 1)
+            elif element.name == 'h2':
+                doc.add_heading(element.get_text(), 2)
+            elif element.name == 'p':
+                p = doc.add_paragraph()
+                for child in element.children:
+                    if child.name is None: # text node
+                        if child.string: p.add_run(child.string)
+                    elif child.name in ['b', 'strong']:
+                        p.add_run(child.get_text()).bold = True
+                    elif child.name in ['i', 'em']:
+                        p.add_run(child.get_text()).italic = True
+                    elif child.name == 'u':
+                        p.add_run(child.get_text()).underline = True
+                    elif child.name == 'br':
+                        p.add_run('\n')
+                    else:
+                        p.add_run(child.get_text())
+
+        f = BytesIO()
+        doc.save(f)
+        f.seek(0)
+        
+        return send_file(
+            f,
+            as_attachment=True,
+            download_name='Kikuyu_Document.docx',
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except Exception as e:
+        print(f"Export error: {e}")
+        return jsonify({"error": "Export failed"}), 500
 
 @app.route('/')
 def index():

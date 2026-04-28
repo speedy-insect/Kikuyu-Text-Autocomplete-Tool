@@ -23,6 +23,7 @@ function getEditor() {
 }
 
 let currentFilename = 'untitled.html';
+let fileHandle = null;
 const sidebar = document.getElementById('sidebar');
 const docList = document.getElementById('doc-list');
 
@@ -30,19 +31,70 @@ document.getElementById('menu-btn').onclick = () => {
     sidebar.classList.toggle('open');
 };
 
+document.getElementById('open-file-btn').onclick = async () => {
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [{ description: 'Kikuyu Document', accept: { 'text/html': ['.kikdoc'] } }]
+        });
+        fileHandle = handle;
+        const file = await handle.getFile();
+        const content = await file.text();
+        
+        currentFilename = file.name;
+        pageContainer.innerHTML = content;
+        lastActiveEditor = document.getElementById('page-1');
+        updateStats();
+        
+        // Sync to backend so it appears in sidebar
+        saveContent();
+        loadDocuments();
+    } catch (err) {
+        console.error("Open file cancelled or failed", err);
+    }
+};
+
+document.getElementById('save-as-btn').onclick = async () => {
+    try {
+        const handle = await window.showSaveFilePicker({
+            suggestedName: currentFilename.replace('.html', '').replace('.kikdoc', '') + '.kikdoc',
+            types: [{ description: 'Kikuyu Document', accept: { 'text/html': ['.kikdoc'] } }]
+        });
+        fileHandle = handle;
+        currentFilename = fileHandle.name;
+        await saveToLocal();
+        saveContent(); // Sync to server under new name
+        loadDocuments(); // Update sidebar list
+    } catch (err) {
+        console.error("Save As cancelled or failed", err);
+    }
+};
+
+async function saveToLocal() {
+    if (!fileHandle) return;
+    try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(pageContainer.innerHTML);
+        await writable.close();
+    } catch (err) {
+        console.error("Failed to save locally", err);
+    }
+}
+
 document.getElementById('new-doc-btn').onclick = () => {
     const name = prompt("Enter document name:");
     if (name) {
-        currentFilename = name.endsWith('.html') ? name : name + '.html';
+        let safeName = name.replace('.html', '').replace('.kikdoc', '');
+        currentFilename = safeName + '.kikdoc';
+        fileHandle = null; // Crucial: disconnect from local file so we don't overwrite it
         pageContainer.innerHTML = `
             <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
                  role="textbox" aria-multiline="true" title="Kikuyu Text Editor"
                  data-gramm="false" data-gramm_editor="false" data-ms-editor="false" translate="no" autocorrect="off" autocapitalize="off" autocomplete="off">
-                <h1>Mũratatara wa Gĩkũyũ</h1>
+                <h1>Andiaka Gikuyu</h1>
                 <p><br></p>
             </div>`;
         lastActiveEditor = document.getElementById('page-1');
-        saveContent();
+        saveContent(); // Will save to backend/documents under new name
         loadDocuments();
     }
 };
@@ -55,10 +107,52 @@ function loadDocuments() {
             files.forEach(file => {
                 const div = document.createElement('div');
                 div.className = `doc-item ${file === currentFilename ? 'active' : ''}`;
-                div.textContent = file;
-                div.onclick = () => openDocument(file);
+                
+                const span = document.createElement('span');
+                span.textContent = file;
+                span.className = 'doc-title';
+                span.onclick = () => openDocument(file);
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = 'doc-delete-btn';
+                delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                delBtn.title = "Delete Document";
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteDocument(file);
+                };
+                
+                div.appendChild(span);
+                div.appendChild(delBtn);
                 docList.appendChild(div);
             });
+        });
+}
+
+function deleteDocument(filename) {
+    if (!confirm(`Are you sure you want to delete "${filename}" from the sidebar cache?`)) return;
+    
+    fetch(`/api/documents/${filename}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (currentFilename === filename) {
+                    // Start fresh if they deleted the currently open file
+                    currentFilename = 'untitled.kikdoc';
+                    fileHandle = null;
+                    pageContainer.innerHTML = `
+                        <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
+                             role="textbox" aria-multiline="true" title="Kikuyu Text Editor">
+                            <h1>Andiaka Gikuyu</h1>
+                            <p><br></p>
+                        </div>`;
+                    lastActiveEditor = document.getElementById('page-1');
+                    saveContent();
+                }
+                loadDocuments();
+            } else {
+                alert("Failed to delete file: " + data.error);
+            }
         });
 }
 
@@ -68,6 +162,7 @@ function openDocument(filename) {
         .then(data => {
             if (data.content) {
                 currentFilename = filename;
+                fileHandle = null; // Clear local connection when switching to a server-side file
                 pageContainer.innerHTML = data.content;
                 lastActiveEditor = document.getElementById('page-1');
                 updateStats();
@@ -128,7 +223,7 @@ document.getElementById('clear-btn').onclick = () => {
             <div id="page-1" class="a4-page" contenteditable="true" spellcheck="false" 
                  role="textbox" aria-multiline="true" title="Kikuyu Text Editor"
                  data-gramm="false" data-gramm_editor="false" data-ms-editor="false" translate="no" autocorrect="off" autocapitalize="off" autocomplete="off">
-                <h1>Mũratatara wa Gĩkũyũ</h1>
+                <h1>Andiaka Gikuyu</h1>
                 <p><br></p>
             </div>`;
         lastActiveEditor = document.getElementById('page-1');
@@ -137,28 +232,39 @@ document.getElementById('clear-btn').onclick = () => {
     }
 };
 
-document.getElementById('save-word-btn').onclick = () => {
-    let fullContent = "";
-    document.querySelectorAll('.a4-page').forEach((page, index) => {
-        fullContent += page.innerHTML;
-        if (index < document.querySelectorAll('.a4-page').length - 1) {
-            fullContent += "<br style='page-break-after: always; clear: both;' />";
-        }
+document.getElementById('export-word-btn').onclick = () => {
+    const content = pageContainer.innerHTML;
+    
+    // Show a loading state
+    const btn = document.getElementById('export-word-btn');
+    const originalText = btn.textContent;
+    btn.textContent = "Exporting...";
+    
+    fetch('/api/export/docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: content })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Export failed on server");
+        return res.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentFilename.replace('.html', '').replace('.kikdoc', '') + '.docx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        btn.textContent = originalText;
+    })
+    .catch(err => {
+        alert("Export failed. Make sure your document formatting is valid.");
+        console.error(err);
+        btn.textContent = originalText;
     });
-    
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head><meta charset='utf-8'><title>Kikuyu Document</title></head>
-    <body style="font-family: sans-serif; padding: 40px; max-width: 800px; margin: auto;">`;
-    const footer = "</body></html>";
-    const sourceHTML = header + fullContent + footer;
-    
-    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
-    const fileDownload = document.createElement("a");
-    document.body.appendChild(fileDownload);
-    fileDownload.href = source;
-    fileDownload.download = 'Kikuyu_Document.doc';
-    fileDownload.click();
-    document.body.removeChild(fileDownload);
 };
 
 document.getElementById('save-pdf-btn').onclick = () => {
@@ -517,6 +623,10 @@ function saveContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content })
     });
+    
+    if (fileHandle) {
+        saveToLocal();
+    }
 }
 
 document.addEventListener('mousedown', (e) => {
