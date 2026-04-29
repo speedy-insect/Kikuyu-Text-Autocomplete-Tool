@@ -10,6 +10,7 @@ let debounceTimer;
 let selectedIndex = -1;
 let currentSuggestions = [];
 let lastQuery = '';
+let currentAbortController = null;
 
 let lastActiveEditor = document.getElementById('page-1');
 
@@ -316,26 +317,26 @@ pageContainer.addEventListener('input', (e) => {
         textBefore = container.textContent.substring(0, offset);
     }
 
-    if (e.data === " " || textBefore.match(/[\s.,!?]$/)) {
-        const words = textBefore.trim().split(/[\s.,!?]+/);
-        const lastWord = words[words.length - 1];
-        if (lastWord) {
-            fetchPredictions(lastWord);
-            checkAutocorrectAndSpell(lastWord, container, offset - 1);
-        }
-        else hideSuggestions();
-        return;
-    }
-
     const words = textBefore.split(/\s+/);
     const currentWord = words[words.length - 1];
 
-    if (currentWord.length < 1) {
-        hideSuggestions();
-        return;
-    }
-
     debounceTimer = setTimeout(() => {
+        if (e.data === " " || textBefore.match(/[\s.,!?]$/)) {
+            const trimmedWords = textBefore.trim().split(/[\s.,!?]+/);
+            const lastWord = trimmedWords[trimmedWords.length - 1];
+            if (lastWord) {
+                fetchPredictions(lastWord);
+                checkAutocorrectAndSpell(lastWord, container, offset - 1);
+            }
+            else hideSuggestions();
+            return;
+        }
+
+        if (currentWord.length < 1) {
+            hideSuggestions();
+            return;
+        }
+
         fetchSuggestions(currentWord);
     }, 150);
 });
@@ -480,19 +481,28 @@ function isSentenceStart(queryLength = 0) {
 }
 
 async function fetchSuggestions(query) {
+    if (currentAbortController) currentAbortController.abort();
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    
     lastQuery = query;
     try {
-        const response = await fetch(`/suggest?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`/suggest?q=${encodeURIComponent(query)}`, { signal });
         const suggestions = await response.json();
+        if (lastQuery !== query) return;
         displaySuggestions(suggestions, 'completion');
     } catch (error) {
-        console.error('Error fetching suggestions:', error);
+        if (error.name !== 'AbortError') console.error('Error fetching suggestions:', error);
     }
 }
 
 async function fetchPredictions(prevWord) {
+    if (currentAbortController) currentAbortController.abort();
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    
     try {
-        const response = await fetch(`/predict?prev=${encodeURIComponent(prevWord)}`);
+        const response = await fetch(`/predict?prev=${encodeURIComponent(prevWord)}`, { signal });
         const predictions = await response.json();
         if (predictions.length > 0) {
             displaySuggestions(predictions, 'prediction');
@@ -500,7 +510,7 @@ async function fetchPredictions(prevWord) {
             hideSuggestions();
         }
     } catch (error) {
-        console.error('Error fetching predictions:', error);
+        if (error.name !== 'AbortError') console.error('Error fetching predictions:', error);
     }
 }
 

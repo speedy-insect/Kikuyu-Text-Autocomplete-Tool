@@ -59,10 +59,12 @@ class KikuyuTrie:
     def insert(self, word):
         norm_word = normalize_kikuyu(word)
         node = self.root
+        node.max_freq_in_subtree = max(node.max_freq_in_subtree, 1)
         for char in norm_word:
             if char not in node.children:
                 node.children[char] = TrieNode()
             node = node.children[char]
+            node.max_freq_in_subtree = max(node.max_freq_in_subtree, 1)
         if word not in node.actual_words:
             node.actual_words[word] = 1
 
@@ -88,22 +90,43 @@ class KikuyuTrie:
 
     @lru_cache(maxsize=2048)
     def search(self, prefix, top_n=5):
+        import heapq
         norm_prefix = normalize_kikuyu(prefix)
         node = self.root
         for char in norm_prefix:
             if char not in node.children: return []
             node = node.children[char]
         
-        results = []
-        self._dfs(node, results)
-        results.sort(key=lambda x: x[1], reverse=True)
-        return [word for word, freq in results[:top_n]]
-
-    def _dfs(self, node, results):
-        if node.actual_words:
-            results.extend(list(node.actual_words.items()))
-        for char, child_node in node.children.items():
-            self._dfs(child_node, results)
+        pq = [(-node.max_freq_in_subtree, 0, node)]
+        tie_breaker = 0
+        
+        results_heap = []
+        result_tie = 0
+        
+        while pq:
+            neg_max_freq, _, curr_node = heapq.heappop(pq)
+            max_freq = -neg_max_freq
+            
+            if len(results_heap) == top_n and max_freq <= results_heap[0][0]:
+                continue
+                
+            if curr_node.actual_words:
+                for word, freq in curr_node.actual_words.items():
+                    if len(results_heap) < top_n:
+                        heapq.heappush(results_heap, (freq, result_tie, word))
+                        result_tie += 1
+                    elif freq > results_heap[0][0]:
+                        heapq.heappushpop(results_heap, (freq, result_tie, word))
+                        result_tie += 1
+                        
+            for char, child_node in curr_node.children.items():
+                if len(results_heap) < top_n or child_node.max_freq_in_subtree > results_heap[0][0]:
+                    tie_breaker += 1
+                    heapq.heappush(pq, (-child_node.max_freq_in_subtree, tie_breaker, child_node))
+                    
+        final_results = [(freq, word) for freq, tie, word in results_heap]
+        final_results.sort(key=lambda x: x[0], reverse=True)
+        return [word for freq, word in final_results]
 
 # Load the models locally from the models/ folder
 BASE_DIR = os.path.dirname(__file__)
@@ -146,12 +169,13 @@ def learn_word():
         return jsonify({"success": False}), 400
     
     word = data['word'].strip()
-    if word:
+    if word and len(word) <= 40 and re.match(r"^[a-zA-ZĩũĨŨ\']+$", word):
         trie.insert(word)
         trie.search.cache_clear()
         with open(USER_DICT_PATH, 'a', encoding='utf-8') as f:
             f.write(word + '\n')
-    return jsonify({"success": True})
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Invalid word"}), 400
 
 @lru_cache(maxsize=2048)
 def get_cached_prediction(prev_word):
@@ -188,8 +212,11 @@ def list_documents():
 def get_document(filename):
     if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
         return jsonify({"error": "Invalid file"}), 400
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({"error": "Invalid file"}), 400
     try:
-        with open(os.path.join(DOCS_DIR, filename), 'r', encoding='utf-8') as f:
+        with open(os.path.join(DOCS_DIR, safe_name), 'r', encoding='utf-8') as f:
             return jsonify({"content": f.read()})
     except FileNotFoundError:
         return jsonify({"error": "Not found"}), 404
@@ -198,10 +225,13 @@ def get_document(filename):
 def save_document(filename):
     if not (filename.endswith('.html') or filename.endswith('.kikdoc')): 
         return jsonify({"error": "Invalid file"}), 400
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({"error": "Invalid file"}), 400
     data = request.get_json()
     if not data or 'content' not in data:
         return jsonify({"error": "No content"}), 400
-    with open(os.path.join(DOCS_DIR, filename), 'w', encoding='utf-8') as f:
+    with open(os.path.join(DOCS_DIR, safe_name), 'w', encoding='utf-8') as f:
         f.write(data['content'])
     return jsonify({"success": True})
 
@@ -284,5 +314,5 @@ def static_proxy(path):
     return send_from_directory('frontend', path)
 
 if __name__ == '__main__':
-    # Defaulting to 5001 to avoid collision with the main script if both are open
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    app.run(host='127.0.0.1', port=5001, debug=debug_mode)
